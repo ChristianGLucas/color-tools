@@ -1,0 +1,87 @@
+name: christiangeorgelucas/color-tools
+version: 0.1.0
+language: python
+description: >-
+  Composable colour-science nodes over a single Color envelope — convert between
+  sRGB, HSL, HSV, CIE XYZ/Lab/LCh and Oklab/Oklch; measure perceptual difference
+  with CIEDE2000; check WCAG contrast for accessibility; parse and render hex;
+  blend perceptually; describe a colour across representations; and name the
+  nearest CSS colour. Colorimetry uses the CIE 1931 2-degree observer and the
+  D65 white point. Fully offline and deterministic, wrapping colour-science.
+license: MIT
+author: Christian George Lucas
+tags:
+  - color
+  - colour
+  - color-conversion
+  - wcag
+  - accessibility
+  - contrast
+  - ciede2000
+  - oklab
+  - design
+nodes:
+    - name: Convert
+      description: >-
+        Convert a colour from one space to another — sRGB to CIE L*a*b*, HSL to
+        Oklch, and any other pair among srgb/hsl/hsv/xyz/lab/lch/oklab/oklch —
+        routing through CIE XYZ so every conversion is colorimetrically correct
+        under the D65 white point.
+      input: ConvertRequest
+      output: Color
+    - name: DeltaE
+      description: >-
+        Measure the perceptual difference (Delta E) between two colours using
+        CIEDE2000 by default (also CIE 1976, CIE 1994 and CMC). Both colours are
+        reduced to CIE L*a*b* first, so any two colours in any supported spaces
+        can be compared — the number says how different they look, not just
+        whether their coordinates differ.
+      input: PairRequest
+      output: Difference
+    - name: Contrast
+      description: >-
+        Compute the WCAG 2.x contrast ratio between a foreground and background
+        colour (1.0 to 21.0) and report whether it meets the AA and AAA
+        thresholds for normal and large text — the answer an accessibility audit
+        expects, using the exact WCAG luminance formula.
+      input: ContrastRequest
+      output: Contrast
+    - name: FromHex
+      description: >-
+        Parse a CSS hex colour ("#RGB" or "#RRGGBB", 3-digit shorthand expanded
+        correctly) into an sRGB colour with components in 0..255, ready to feed
+        into any other node. Malformed hex is rejected with a structured error
+        rather than guessed at.
+      input: HexInput
+      output: Color
+    - name: ToHex
+      description: >-
+        Render any colour as a "#rrggbb" hex string. The colour is converted to
+        sRGB and clamped into the displayable gamut, so even an out-of-gamut Lab
+        or Oklch colour yields a valid, usable hex value.
+      input: Color
+      output: HexResult
+    - name: Mix
+      description: >-
+        Blend two colours by a weight from 0 (all of the first) to 1 (all of the
+        second), interpolating in a rectangular space — Oklab by default for a
+        perceptually even blend, or srgb/xyz/lab. Cylindrical spaces are refused
+        because interpolating a hue angle is ambiguous.
+      input: MixRequest
+      output: Color
+    - name: Describe
+      description: >-
+        Summarise a colour across the representations agents most often need at
+        once — its hex, its sRGB / HSL / Oklch components, its WCAG relative
+        luminance, and whether it is dark enough to want white text on it — in a
+        single call instead of several conversions.
+      input: Color
+      output: Description
+    - name: NearestName
+      description: >-
+        Find the nearest CSS named colour to a given colour by CIEDE2000 distance
+        in CIE L*a*b*, turning an arbitrary colour into a human-readable name like
+        "tomato" plus how close that name is. An exact CSS colour returns its own
+        name with a difference of 0.
+      input: Color
+      output: NamedColor

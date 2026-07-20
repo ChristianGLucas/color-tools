@@ -1,0 +1,202 @@
+// Data contracts for christiangeorgelucas/color-tools.
+//
+// The vocabulary is COLOUR: a point in a named colour space, carried as a
+// small tuple of numbers plus the name of the space it lives in. Every node
+// consumes and/or emits the same `Color` envelope, so colours flow from one
+// node into the next unchanged.
+//
+// SUPPORTED SPACES and the human-facing units each component is written in
+// (these are the numbers you send and receive — the wrapped library's own
+// normalised 0..1 ranges are handled internally):
+//
+//   "srgb"   [R, G, B]      each 0..255      (gamma-encoded sRGB, the web's RGB)
+//   "hsl"    [H, S, L]      H 0..360, S,L 0..100
+//   "hsv"    [H, S, V]      H 0..360, S,V 0..100
+//   "xyz"    [X, Y, Z]      CIE 1931, ~0..1, Y=1 for reference white (D65/2)
+//   "lab"    [L, a, b]      CIE L*a*b*, L 0..100, a,b roughly -128..127
+//   "lch"    [L, C, H]      CIE LCh(ab), L 0..100, C 0..~150, H 0..360
+//   "oklab"  [L, a, b]      Oklab, L 0..1, a,b roughly -0.4..0.4
+//   "oklch"  [L, C, H]      Oklch, L 0..1, C 0..~0.4, H 0..360
+//
+// All colorimetry uses the CIE 1931 2-degree standard observer and the D65
+// white point, which is what sRGB is defined against.
+//
+// The hard, algorithmically-load-bearing parts — the sRGB transfer function,
+// the XYZ matrices, the L*a*b*/Oklab transforms, and the CIEDE2000 colour
+// difference — are all owned by the colour-science library. This package adds
+// the input guards, the human-unit scaling, and the WCAG contrast formula
+// (which colour-science does not provide), each backed by a test.
+//
+// Nodes never raise for bad input. Every output message carries an `error`
+// field that is unset on success and populated, deterministically, on failure.
+
+syntax = "proto3";
+
+package christiangeorgelucas.color_tools;
+
+// A structured, deterministic failure. Unset on success.
+message Error {
+  // Stable machine-readable code, one of:
+  //   INVALID_COLOR    — the colour is malformed: an unknown space name, the
+  //                      wrong number of components for its space, or a
+  //                      non-finite (NaN/infinite) component.
+  //   INVALID_HEX      — a hex string is not #RGB or #RRGGBB.
+  //   INVALID_ARGUMENT — a non-colour argument is wrong: an unknown target
+  //                      space, difference method, or mix space, or a mix
+  //                      weight outside 0..1.
+  //   OVERFLOW         — a converted component came back non-finite.
+  //   INTERNAL         — this package itself faulted; the caller's input may be
+  //                      perfectly valid. Nodes never surface a traceback, so
+  //                      this is what an unexpected fault looks like.
+  string code = 1;
+  // Human-readable detail naming exactly what was rejected and why.
+  string message = 2;
+}
+
+// The canonical colour envelope every node consumes and/or emits: a point in a
+// named colour space.
+message Color {
+  // The colour space these components live in: one of "srgb", "hsl", "hsv",
+  // "xyz", "lab", "lch", "oklab", "oklch". An empty or unknown value is
+  // rejected with INVALID_COLOR — an empty space is also what an unset or
+  // edge-dropped message looks like, so it is never read as a valid colour.
+  string space = 1;
+  // The colour's components in the units documented for its space (see the
+  // file header). Exactly three numbers; any other count, or a non-finite
+  // value, is rejected with INVALID_COLOR.
+  repeated double components = 2;
+  // Set when the operation failed; unset on success. Because Color is both an
+  // input and an output type, a node given a Color whose `error` is already
+  // set propagates that error unchanged rather than reading the accompanying
+  // zeros as a valid black.
+  Error error = 3;
+}
+
+// A colour plus the space to express it in.
+message ConvertRequest {
+  // The colour to convert.
+  Color color = 1;
+  // The target space: one of "srgb", "hsl", "hsv", "xyz", "lab", "lch",
+  // "oklab", "oklch". Any other value is rejected with INVALID_ARGUMENT.
+  string to_space = 2;
+}
+
+// Two colours and the difference metric to measure between them.
+message PairRequest {
+  // First colour.
+  Color a = 1;
+  // Second colour.
+  Color b = 2;
+  // The colour-difference formula, one of "CIE 2000" (default; the modern
+  // perceptual standard, a.k.a. CIEDE2000), "CIE 1976" (plain Euclidean
+  // distance in L*a*b*), "CIE 1994", or "CMC". Empty means "CIE 2000". Any
+  // other value is rejected with INVALID_ARGUMENT.
+  string method = 3;
+}
+
+// A perceptual colour difference.
+message Difference {
+  // The colour difference (Delta E). Roughly: <1 is imperceptible, 1-2 is
+  // perceptible on close inspection, 2-10 is perceptible at a glance, >10 is a
+  // clearly different colour. Both colours are converted to CIE L*a*b* first.
+  double delta_e = 1;
+  // The method actually used, e.g. "CIE 2000".
+  string method = 2;
+  // Set when the difference could not be computed; unset on success.
+  Error error = 3;
+}
+
+// A foreground and background colour to measure legibility between.
+message ContrastRequest {
+  // The foreground (text) colour.
+  Color foreground = 1;
+  // The background colour.
+  Color background = 2;
+}
+
+// A WCAG 2.x contrast result.
+message Contrast {
+  // The WCAG contrast ratio, from 1.0 (identical) to 21.0 (black on white).
+  // Computed from the WCAG relative luminance of each colour; the order of
+  // foreground and background does not change it.
+  double ratio = 1;
+  // Whether `ratio` meets WCAG AA for normal-size text (>= 4.5).
+  bool aa_normal = 2;
+  // Whether `ratio` meets WCAG AA for large text (>= 3.0).
+  bool aa_large = 3;
+  // Whether `ratio` meets WCAG AAA for normal-size text (>= 7.0).
+  bool aaa_normal = 4;
+  // Whether `ratio` meets WCAG AAA for large text (>= 4.5).
+  bool aaa_large = 5;
+  // Set when the contrast could not be computed; unset on success.
+  Error error = 6;
+}
+
+// A hex colour string to parse.
+message HexInput {
+  // A CSS hex colour, "#RGB" or "#RRGGBB" (the leading '#' is optional, case is
+  // ignored). Anything else is rejected with INVALID_HEX.
+  string hex = 1;
+}
+
+// A rendered hex colour.
+message HexResult {
+  // The colour as "#rrggbb". The colour is converted to sRGB and clamped into
+  // the displayable gamut first, so an out-of-gamut input still yields a valid
+  // hex string.
+  string hex = 1;
+  // Set when the colour could not be rendered; unset on success.
+  Error error = 2;
+}
+
+// Two colours to blend, and how.
+message MixRequest {
+  // The first colour (returned as-is at weight 0).
+  Color a = 1;
+  // The second colour (returned as-is at weight 1).
+  Color b = 2;
+  // How far to blend from `a` toward `b`, from 0.0 (all `a`) to 1.0 (all `b`).
+  // 0.5 is the midpoint. Values outside 0..1 are rejected with
+  // INVALID_ARGUMENT.
+  double weight = 3;
+  // The space to interpolate in — must be a rectangular space: "srgb", "xyz",
+  // "lab", or "oklab" (default). Cylindrical spaces (hsl/hsv/lch/oklch) are
+  // rejected with INVALID_ARGUMENT, because interpolating a hue angle is
+  // ambiguous; convert to one of the rectangular spaces instead. The result is
+  // returned in this space.
+  string space = 4;
+}
+
+// A convenience summary of a single colour across common representations.
+message Description {
+  // The colour as "#rrggbb" (sRGB, gamut-clamped).
+  string hex = 1;
+  // sRGB components [R, G, B], each 0..255.
+  repeated double srgb = 2;
+  // HSL components [H 0..360, S 0..100, L 0..100].
+  repeated double hsl = 3;
+  // Oklch components [L 0..1, C 0..~0.4, H 0..360].
+  repeated double oklch = 4;
+  // WCAG relative luminance, 0.0 (black) to 1.0 (white).
+  double relative_luminance = 5;
+  // True when the colour is dark enough that white text reads better on it than
+  // black text does (i.e. its contrast against white exceeds its contrast
+  // against black). Useful for picking a legible text colour.
+  bool is_dark = 6;
+  // Set when the colour could not be described; unset on success.
+  Error error = 7;
+}
+
+// The nearest CSS named colour to a given colour.
+message NamedColor {
+  // The CSS Color Module Level 4 keyword of the nearest named colour, e.g.
+  // "tomato". Chosen by CIEDE2000 distance in CIE L*a*b*.
+  string name = 1;
+  // That named colour's canonical hex, e.g. "#ff6347".
+  string hex = 2;
+  // The CIEDE2000 difference between the input and the named colour. 0 means an
+  // exact match; small values mean the name is a close description.
+  double delta_e = 3;
+  // Set when the nearest colour could not be found; unset on success.
+  Error error = 4;
+}

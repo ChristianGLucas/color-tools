@@ -1,0 +1,13 @@
+# Pinned for determinism. Full transitive runtime tree of this package.
+# protobuf and grpcio are supplied by the Axiom runtime and are not pinned here
+# (both permissive: protobuf BSD-3-Clause, grpcio Apache-2.0).
+# Every dependency below is permissive, verified by reading each distribution's
+# own LICENSE text, not registry metadata:
+#   colour-science — BSD-3-Clause (owns the hard part: sRGB transfer function,
+#                    XYZ matrices, L*a*b*/Oklab transforms, CIEDE2000 difference)
+#   numpy          — BSD-3-Clause (bundles small 0BSD/MIT/Zlib/CC0-1.0 components,
+#                    all permissive). colour-science's only required dependency.
+# No copyleft anywhere in the tree. scipy/matplotlib/networkx are OPTIONAL extras
+# of colour-science and are deliberately NOT installed (unused here).
+colour-science==0.4.7
+numpy==2.5.1

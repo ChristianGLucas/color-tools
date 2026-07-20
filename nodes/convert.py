@@ -11,9 +11,11 @@ from nodes._color import (
 
 def convert(ax: AxiomContext, input: ConvertRequest) -> Color:
     """Convert a colour from one space to another — sRGB to CIE L*a*b*, HSL to
-    Oklch, and any other pair among srgb/hsl/hsv/xyz/lab/lch/oklab/oklch —
-    routing through CIE XYZ so every conversion is colorimetrically correct
-    under the D65 white point.
+    Oklch, and any other pair among srgb/hsl/hsv/xyz/lab/lch/oklab/oklch.
+    Cross-family conversions bridge through CIE XYZ and same-family
+    (sRGB/HSL/HSV) ones stay in sRGB, so every result is colorimetrically
+    correct under the D65 white point. Out-of-gamut coordinates are preserved
+    rather than clamped (use ToHex or Describe for a displayable value).
     """
     try:
         space, native = read_color(input.color)

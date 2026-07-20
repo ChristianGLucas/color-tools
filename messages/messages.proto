@@ -78,6 +78,11 @@ message ConvertRequest {
   Color color = 1;
   // The target space: one of "srgb", "hsl", "hsv", "xyz", "lab", "lch",
   // "oklab", "oklch". Any other value is rejected with INVALID_ARGUMENT.
+  //
+  // Convert PRESERVES out-of-gamut coordinates: a colour outside the target
+  // gamut (e.g. a vivid Lab converted to sRGB) comes back with components
+  // beyond the nominal ranges above rather than clamped, so no information is
+  // lost. Use ToHex or Describe when you need a gamut-clamped, displayable value.
   string to_space = 2;
 }
 

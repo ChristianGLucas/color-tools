@@ -10,8 +10,9 @@ transfer function, the sRGB<->XYZ matrices, the CIE L*a*b* and Oklab transforms,
 the LCh polar forms, and the CIEDE2000 / CIE94 / CMC colour-difference formulas.
 This file adds only (a) input validation, (b) the scaling between the library's
 internal 0..1 conventions and the human-facing units documented in the proto,
-(c) routing every space pair through an XYZ hub, and (d) the WCAG 2.x contrast
-formula, which colour-science does not implement.
+(c) routing conversions through the right hub (sRGB within the sRGB/HSL/HSV
+family, CIE XYZ otherwise, bridging only on a cross-family conversion), and
+(d) the WCAG 2.x contrast formula, which colour-science does not implement.
 
 WHY THE GUARDS EXIST — each is a real property of the input surface:
 

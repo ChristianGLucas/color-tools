@@ -1,6 +1,6 @@
 # color-tools
 
-Composable colour-science nodes for the [Axiom](https://axiom.dev) marketplace,
+Composable colour-science nodes for the [Axiom](https://axiomide.com) marketplace,
 published under the `christiangeorgelucas` handle. Every node consumes and/or
 emits a single `Color` envelope — a point in a named colour space — so colours
 flow cleanly from one node into the next.
